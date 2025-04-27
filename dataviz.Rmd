@@ -196,7 +196,8 @@ saveWidget(
         transform = function(x) cluster_labels[as.character(x)]
       )
     ),
-  file = "/Users/mathilde/Documents/TSE/M2/S1/Alternance/Réforme retraites/dataviz/carte_ocde.html",
+  #file = "/Users/mathilde/Documents/TSE/M2/S1/Alternance/Réforme retraites/dataviz/carte_ocde.html",
+  file = "index.html",
   selfcontained = TRUE
 )
 
