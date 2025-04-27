@@ -1,0 +1,206 @@
+DATAVIZ CLUSTERING RETRAITES
+
+---
+title: "Carte interactive des pays de l'OCDE"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(sf)
+library(leaflet)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(htmltools)
+library(htmlwidgets)
+
+palette <- c(
+  "#A8DADC",  # bleu pastel foncé
+  "#E63946",  # rouge vif
+  "#1D3557",  # bleu foncé
+  "#F5C32A",  # jaune
+  "#A773D3"   # violet
+)
+
+```
+
+```{r}
+# Charger la base OCDE
+#fichier <- "/Users/mathilde/Documents/TSE/M2/S1/Alternance/Réforme retraites/Data_clustering_retraites.xlsx"
+fichier <- "Data_clustering_retraites.xlsx"
+
+df <- read_excel(fichier, sheet = "dataclean_cluster") %>%
+  rename(VARIABLE = 1)
+
+# Transposer et nettoyer
+df_long <- df %>%
+  pivot_longer(-VARIABLE, names_to = "country", values_to = "value") %>%
+  pivot_wider(names_from = VARIABLE, values_from = value)
+
+# Harmoniser les noms de pays
+df_long$country[df_long$country == "United States"] <- "United States of America"
+
+
+# Convertir toutes les colonnes sauf 'country'
+df_long <- df_long %>%
+  mutate(across(-country, ~ as.numeric(gsub(",", ".", .))))
+
+
+```
+
+```{r}
+# Charger la carte du monde (format sf)
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+# Fusionner les données OCDE avec la carte
+world_ocde <- world %>%
+  left_join(df_long, by = c("name" = "country")) %>%
+  filter(!is.na(cluster))  # garder seulement les pays OCDE
+
+
+```
+
+```{r}
+# Créer la colonne "label" avec toutes les variables
+world_ocde$label <- apply(world_ocde, 1, function(row) {
+  nom <- row[["name"]]
+  infos <- paste0(
+    names(df_long)[-1], ": ",
+    format(round(as.numeric(row[names(df_long)[-1]]), 2), nsmall = 2),
+    collapse = "<br/>"
+  )
+  HTML(paste0("<strong>", nom, "</strong><br/>", infos))
+})
+
+
+# Palette pour les clusters
+pal <- colorFactor(palette = palette, domain = sort(unique(world_ocde$cluster)))
+
+# Vecteur des labels personnalisés
+cluster_labels <- c(
+  "4" = "Pays Méditerranéens",
+  "1" = "Pays Continentaux",
+  "2" = "Pays Nordiques",
+  "3" = "Pays Anglo-Saxons"
+)
+
+# Créer la carte interactive avec légende modifiée
+leaflet(world_ocde) %>%
+  addProviderTiles("CartoDB.Positron") %>%
+  addPolygons(
+    fillColor = ~pal(cluster),
+    weight = 1,
+    color = "black",
+    fillOpacity = 0.7,
+    label = ~label,
+    highlightOptions = highlightOptions(
+      color = "blue", weight = 2, bringToFront = TRUE
+    )
+  ) %>%
+  addLegend(
+    position = "topright",
+    pal = pal,
+    values = ~cluster,
+    title = "Typologie OCDE (cluster)",
+    labFormat = labelFormat(
+      transform = function(x) cluster_labels[as.character(x)]
+    )
+  )
+
+# Créer le label HTML pour chaque pays
+world_ocde$label <- lapply(seq(nrow(world_ocde)), function(i) {
+  paste0(
+    "<strong>", world_ocde$country[i], "</strong><br/>",
+    "Taux de remplacement net (%) : ", world_ocde$net_pens_replacement_rate[i], "<br/>",
+    "Âge effectif de départ à la retraite (ans) : ", world_ocde$effective_retirement_age[i], "<br/>",
+    "Taux d'emploi des 55-64 ans (%) : ", world_ocde$empl_rate_55_64y[i], "<br/>",
+    "Revenu relatif des plus de 65 ans : ", world_ocde$incomes_old[i], "<br/>",
+    "Nombre de régimes de retraite : ", world_ocde$pension_schemes_number[i], "<br/>",
+    "Actifs des fonds de pension (% PIB)  ", world_ocde$pension_assets[i], "<br/>",
+    "Part des revenus des seniors issus des transferts publics (%) : ", world_ocde$public_transfers_share[i]
+  )
+})
+
+# Créer la carte interactive avec labels corrigés
+leaflet(world_ocde) %>%
+  addProviderTiles("CartoDB.Positron") %>%
+  addPolygons(
+    fillColor = ~pal(cluster),
+    weight = 1,
+    color = "black",
+    fillOpacity = 0.7,
+    label = ~lapply(label, HTML),
+    highlightOptions = highlightOptions(
+      color = "blue", weight = 2, bringToFront = TRUE
+    )
+  ) %>%
+  addLegend(
+    position = "topright",
+    pal = pal,
+    values = ~cluster,
+    title = "Typologie OCDE (cluster)",
+    labFormat = labelFormat(
+      transform = function(x) cluster_labels[as.character(x)]
+    )
+  )
+
+```
+
+
+```{r}
+# Créer la carte interactive
+leaflet(world_ocde) %>%
+  addProviderTiles("CartoDB.Positron") %>%
+  addPolygons(
+    fillColor = ~pal(cluster),
+    weight = 1,
+    color = "black",
+    fillOpacity = 0.7,
+    label = ~label,
+    highlightOptions = highlightOptions(
+      color = "blue", weight = 2, bringToFront = TRUE
+    )
+  ) %>%
+  addLegend(
+    position = "topright",
+    pal = pal,
+    values = ~cluster,
+    title = "Typologie OCDE (cluster)"
+  )
+
+
+```
+```{r}
+# Sauvegarder la carte dans un fichier HTML
+saveWidget(
+  leaflet(world_ocde) %>%
+    addProviderTiles("CartoDB.Positron") %>%
+    addPolygons(
+      fillColor = ~pal(cluster),
+      weight = 1,
+      color = "black",
+      fillOpacity = 0.7,
+      label = ~lapply(label, HTML),
+      highlightOptions = highlightOptions(
+        color = "blue", weight = 2, bringToFront = TRUE
+      )
+    ) %>%
+    addLegend(
+      position = "topright",
+      pal = pal,
+      values = ~cluster,
+      title = "Typologie OCDE (cluster)",
+      labFormat = labelFormat(
+        transform = function(x) cluster_labels[as.character(x)]
+      )
+    ),
+  file = "/Users/mathilde/Documents/TSE/M2/S1/Alternance/Réforme retraites/dataviz/carte_ocde.html",
+  selfcontained = TRUE
+)
+
+```
+
+
+
