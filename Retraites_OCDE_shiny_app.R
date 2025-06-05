@@ -9,10 +9,13 @@ library(sf)
 library(rnaturalearth)
 library(rnaturalearthdata)
 library(htmltools)
+library(rsconnect)
 
 # ----------------- Données -----------------
 
-df <- read_excel("/Users/mathilde/Documents/TSE/M2/S1/Alternance/Réforme retraites/2. BDD/Data_clustering_retraites.xlsx", sheet = "dataclean_cluster") %>%
+#df <- read_excel("/Users/mathilde/Documents/TSE/M2/S1/Alternance/Réforme retraites/2. BDD/Data_clustering_retraites.xlsx", sheet = "dataclean_cluster") %>%
+setwd("/Users/mathilde/Documents/TSE/M2/S1/Alternance/Réforme retraites/2. BDD")
+df <- read_excel("Data_clustering_retraites.xlsx", sheet = "dataclean_cluster") %>%
   rename(VARIABLE = 1) %>%
   pivot_longer(-VARIABLE, names_to = "country", values_to = "value") %>%
   pivot_wider(names_from = VARIABLE, values_from = value)
@@ -47,10 +50,16 @@ variables <- c(
   "Taux de remplacement net (%)" = "net_pens_replacement_rate",
   "Âge effectif de départ à la retraite (ans)" = "effective_retirement_age",
   "Taux d'emploi des 55-64 ans (%)" = "empl_rate_55_64y",
-  "Revenu relatif des +65 ans" = "incomes_old",
-  "Nombre de régimes de retraite" = "pension_schemes_number",
+  "Revenu relatif des plus de 65 ans (%)" = "incomes_old",
+  "Nombre de régimes de retraite principaux" = "pension_schemes_number",
   "Actifs des fonds de pension (% PIB)" = "pension_assets",
-  "Typologie (cluster)" = "cluster"
+  "Part des revenus des seniors issus du capital (%)" = "income_capital_share",
+  "Part des revenus des seniors issus du travail (%)" = "income_work_share",
+  "Part des revenus des seniors issus des transferts (%)" = "income_transfers_share",
+  "Taux de pauvreté des plus de 65 ans (%)" = "poverty_rate_65+",
+  "Dépenses de retraites (% PIB)" = "public_pension_spending",
+  "Différence entre l'âge de retraite prévu en 2060 et actuel de retraite (ans)" = "diff_future-current_retirement_age",
+  "Typologie (groupe)" = "cluster"
 )
 
 cluster_colors <- c(
@@ -164,3 +173,13 @@ server <- function(input, output, session) {
 # ----------------- Lancement -----------------
 
 shinyApp(ui, server)
+
+
+
+# ----------------- Déploiement -----------------
+
+rsconnect::deployApp(
+  appDir = "2. BDD",       
+  appName = "ocde-retraites",  # nom de votre app sur shinyapps.io
+  account = "mathildeferrer"
+)
